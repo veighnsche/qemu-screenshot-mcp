@@ -5,11 +5,12 @@ import json
 import base64
 import tempfile
 import io
+import datetime
+from pathlib import Path
 from PIL import Image
 from mcp.server.fastmcp import FastMCP
 
 # Initialize FastMCP server
-# We use FastMCP which simplifies tool creation
 mcp = FastMCP("QEMU Screenshot")
 
 def find_qemu_process():
@@ -19,7 +20,6 @@ def find_qemu_process():
             name = proc.info.get('name') or ""
             if name.startswith('qemu-system-'):
                 return proc
-            # Sometimes name is just 'qemu' depending on OS/how it's launched
             cmdline = proc.info.get('cmdline') or []
             if any('qemu-system-' in arg for arg in cmdline):
                 return proc
@@ -34,7 +34,7 @@ def get_qmp_socket_path(proc):
         if arg == '-qmp' and i + 1 < len(cmdline):
             val = cmdline[i + 1]
             if val.startswith('unix:'):
-                return val[5:].split(',')[0] # remove extras like ,server,nowait
+                return val[5:].split(',')[0]
         elif arg.startswith('-qmp=unix:'):
             return arg[len('-qmp=unix:'):].split(',')[0]
     return None
@@ -47,15 +47,11 @@ async def qmp_command(socket_path, command, args=None):
         return {"error": {"desc": f"Failed to connect to QMP socket: {str(e)}"}}
     
     try:
-        # Read greeting
         await reader.readline()
-        
-        # Enable QMP
         writer.write(json.dumps({"execute": "qmp_capabilities"}).encode() + b'\n')
         await writer.drain()
-        await reader.readline() # capability response
+        await reader.readline()
         
-        # Execute command
         cmd = {"execute": command}
         if args:
             cmd["arguments"] = args
@@ -73,21 +69,29 @@ async def qmp_command(socket_path, command, args=None):
 async def capture_screenshot() -> str:
     """
     Captures a screenshot of the first running QEMU instance.
-    The QEMU instance must have been started with a Unix QMP socket, 
-    e.g., '-qmp unix:/tmp/qmp-socket,server,nowait'.
+    Saves the image to a 'screenshots' directory and returns the file path and base64 data.
     """
     proc = find_qemu_process()
     if not proc:
-        return "Error: No running QEMU instance found. Ensure QEMU is running."
+        return "Error: No running QEMU instance found."
     
     socket_path = get_qmp_socket_path(proc)
     if not socket_path:
-        return f"Error: QEMU process (PID {proc.pid}) found, but no -qmp unix: socket detected in arguments."
+        return f"Error: QEMU process (PID {proc.pid}) found, but no QMP socket detected."
 
     if not os.path.exists(socket_path):
         return f"Error: QMP socket path '{socket_path}' does not exist."
 
-    # QEMU's screendump command creates a PPM file. We convert it to PNG for the user.
+    # Prepare storage directory
+    cwd = Path.cwd()
+    screenshot_dir = cwd / "screenshots"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"qemu_screenshot_{timestamp}.png"
+    filepath = screenshot_dir / filename
+
+    # QEMU's screendump command creates a PPM file.
     with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as tmp_ppm:
         tmp_ppm_path = tmp_ppm.name
 
@@ -97,21 +101,25 @@ async def capture_screenshot() -> str:
         if "error" in res:
             return f"Error from QMP: {res['error']['desc']}"
 
-        # Convert PPM to PNG using Pillow
         if not os.path.exists(tmp_ppm_path) or os.path.getsize(tmp_ppm_path) == 0:
             return "Error: Screendump failed to produce a file."
 
         with Image.open(tmp_ppm_path) as img:
+            img.save(filepath, format='PNG')
+            
+            # Also get base64 for direct display if needed
             img_byte_arr = io.BytesIO()
             img.save(img_byte_arr, format='PNG')
             png_data = img_byte_arr.getvalue()
             
         encoded = base64.b64encode(png_data).decode('utf-8')
         
-        # Returning a formatted string that an agent can interpret.
-        # Ideally MCP would handle image return types better if the client supports it,
-        # but for a simple string response, this works well with custom system prompts.
-        return f"Screenshot captured successfully from QEMU (PID {proc.pid}). [image/png;base64,{encoded}]"
+        return (
+            f"Screenshot captured successfully!\n"
+            f"Filename: {filename}\n"
+            f"Path: {filepath.absolute()}\n"
+            f"\n[image/png;base64,{encoded}]"
+        )
     
     except Exception as e:
         return f"Error during screenshot capture: {str(e)}"

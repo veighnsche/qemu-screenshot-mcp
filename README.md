@@ -6,8 +6,9 @@ A Model Context Protocol (MCP) server that provides tools for interacting with r
 
 - 🔍 **Auto-discovery**: Automatically finds the first running `qemu-system-*` process.
 - 🔌 **QMP Integration**: Uses the QEMU Machine Protocol (QMP) for reliable, window-independent screenshot capture.
+- 📁 **Persistent Storage**: Saves screenshots to a `screenshots/` directory with timestamped filenames for easy access.
 - 🖼️ **Auto-Conversion**: Automatically converts QEMU's raw PPM output to PNG via Pillow for immediate use in AI interfaces.
-- 🚀 **Standardized Return**: Returns screenshots as base64-encoded PNG strings that agents can easily interpret.
+- 🚀 **Detailed Response**: Returns the absolute file path and filename along with the base64-encoded PNG.
 
 ## Installation
 
