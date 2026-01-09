@@ -59,8 +59,35 @@ Add the following to your MCP configuration file (e.g., `config.json` for Claude
 
 ## Tools Provided
 
+### `run_and_screenshot`
+**Atomic operation**: Starts a QEMU VM, waits for boot, captures a screenshot, then shuts down cleanly.
+
+This is the **recommended tool for AI agents** as it provides a single, deterministic step for capturing VM state.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `arch` | string | ✅ | Architecture: `"x86_64"` or `"aarch64"` |
+| `image` | string | ✅ | Path to ISO or disk image to boot |
+| `screenshot_delay_seconds` | int | ✅ | Seconds to wait before screenshot (boot time) |
+| `extra_args` | string | ❌ | Additional QEMU arguments (e.g., `"-m 2G -smp 2"`) |
+
+**Example:**
+```json
+{
+  "arch": "x86_64",
+  "image": "/path/to/archlinux.iso",
+  "screenshot_delay_seconds": 10,
+  "extra_args": "-m 4G -enable-kvm"
+}
+```
+
+**Returns**: Screenshot image with metadata, or detailed error message.
+
+---
+
 ### `capture_screenshot`
-Captures a screenshot of the first running QEMU instance.
+Captures a screenshot of an **already running** QEMU instance.
 - **Returns**: A base64-encoded PNG string encased in standard image markers.
 - **Error Handling**: Provides detailed feedback if no QEMU process is found, if QMP is missing, or if the socket is unreachable.
 
