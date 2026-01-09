@@ -33,7 +33,7 @@ qemu-system-x86_64 ... -qmp unix:/tmp/qmp-socket,server,nowait
 uvx --from /home/vince/Projects/qemu-screenshot-mcp qemu-screenshot
 
 # To run from a GitHub repository (after you push it):
-uvx --from git+https://github.com/vinceliem/qemu-screenshot-mcp.git qemu-screenshot
+uvx --from git+https://github.com/veighnsche/qemu-screenshot-mcp.git qemu-screenshot
 ```
 
 ### Configuration in Claude Desktop (or other MCP clients)
@@ -46,7 +46,7 @@ Add the following to your MCP configuration file (e.g., `config.json` for Claude
       "command": "uvx",
       "args": [
         "--from",
-        "/home/vince/Projects/qemu-screenshot-mcp",
+        "git+https://github.com/veighnsche/qemu-screenshot-mcp.git",
         "qemu-screenshot"
       ]
     }
