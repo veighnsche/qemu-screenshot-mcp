@@ -28,19 +28,15 @@ To use this server, your QEMU instance **must** expose a Unix QMP socket. Run QE
 qemu-system-x86_64 ... -qmp unix:/tmp/qmp-socket,server,nowait
 ```
 
-## Usage
-
-### Using with `uvx` (Recommended)
-
-You can run the server directly without manual installation using `uvx`:
-
 ```bash
-# Point --from to the directory where this project is located
-uvx --from /path/to/qemu-screenshot-mcp qemu-screenshot
+# To run from your local directory:
+uvx --from /home/vince/Projects/qemu-screenshot-mcp qemu-screenshot
+
+# To run from a GitHub repository (after you push it):
+uvx --from git+https://github.com/vinceliem/qemu-screenshot-mcp.git qemu-screenshot
 ```
 
 ### Configuration in Claude Desktop (or other MCP clients)
-
 Add the following to your MCP configuration file (e.g., `config.json` for Claude Desktop):
 
 ```json
@@ -57,6 +53,9 @@ Add the following to your MCP configuration file (e.g., `config.json` for Claude
   }
 }
 ```
+
+> [!TIP]
+> Once you push your project to GitHub, you can replace the local path in `--from` with the Git URL to make it accessible from anywhere!
 
 ## Tools Provided
 
