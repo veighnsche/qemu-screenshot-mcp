@@ -1,7 +1,7 @@
 [project]
 name = "qemu-screenshot-mcp"
 version = "0.1.0"
-description: "MCP server for capturing QEMU screenshots with X11/Wayland fallback"
+description = "MCP server for capturing QEMU screenshots with X11/Wayland fallback"
 readme = "README.md"
 authors = [
     { name = "Vince Liem", email = "vincepaul.liem@gmail.com" }
