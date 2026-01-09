@@ -120,7 +120,13 @@ async def capture_screenshot():
     """
     processes = find_qemu_processes()
     if not processes:
-        return [TextContent(type="text", text="Error: No running QEMU instance found.")]
+        return [TextContent(type="text", text="""\
+Error: No running QEMU instance found.
+
+TIP FOR AI AGENTS:
+- QEMU must be running with a display (e.g., `-display gtk` or `-display sdl`).
+- Headless QEMU (`-display none` or `-nographic`) cannot be screenshotted via X11.
+- For headless VMs, use QMP with `-qmp unix:/tmp/qmp.sock,server,nowait`.""")]
     
     # Prioritize processes with QMP
     qmp_proc = None
@@ -194,6 +200,18 @@ async def capture_screenshot():
                 return _create_success_response(filename, filepath, msg)
         except Exception:
             continue
+
+    # No QEMU window found and no QMP - provide guidance
+    if not window_id and not socket_path:
+        return [TextContent(type="text", text="""\
+Error: QEMU process found but no window or QMP socket detected.
+
+TIP FOR AI AGENTS:
+- The QEMU instance appears to be running headless (`-display none` or `-nographic`).
+- Screenshots require either:
+  1. A visible window: Start QEMU with `-display gtk` or `-display sdl`.
+  2. QMP socket: Start QEMU with `-qmp unix:/tmp/qmp.sock,server,nowait`.
+- Headless QEMU without QMP cannot provide screenshots.""")]
 
     return [TextContent(type="text", text="Error: Failed to capture screenshot using any available method (QMP, Targeted X11, Spectacle all failed).")]
 
