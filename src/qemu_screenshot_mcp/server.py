@@ -74,18 +74,28 @@ def get_qmp_socket_path(proc):
             return arg[len('-qmp=unix:'):].split(',')[0]
     return None
 
+# TEAM_001 BREADCRUMB: CONFIRMED - QMP operations need timeout to prevent hanging
+QMP_TIMEOUT_SECONDS = 5
+
 async def qmp_command(socket_path, command, args=None):
-    """Execute a QMP command."""
+    """Execute a QMP command with timeout protection."""
     try:
-        reader, writer = await asyncio.open_unix_connection(socket_path)
+        # TEAM_001: Added timeout to prevent indefinite blocking
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_unix_connection(socket_path),
+            timeout=QMP_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError:
+        return {"error": {"desc": f"Connection to QMP socket timed out after {QMP_TIMEOUT_SECONDS}s"}}
     except Exception as e:
         return {"error": {"desc": f"Failed to connect to QMP socket: {str(e)}"}}
     
     try:
-        await reader.readline()
+        # Wrap all readline operations in timeout
+        await asyncio.wait_for(reader.readline(), timeout=QMP_TIMEOUT_SECONDS)
         writer.write(json.dumps({"execute": "qmp_capabilities"}).encode() + b'\n')
         await writer.drain()
-        await reader.readline()
+        await asyncio.wait_for(reader.readline(), timeout=QMP_TIMEOUT_SECONDS)
         
         cmd = {"execute": command}
         if args:
@@ -94,8 +104,10 @@ async def qmp_command(socket_path, command, args=None):
         writer.write(json.dumps(cmd).encode() + b'\n')
         await writer.drain()
         
-        response = await reader.readline()
+        response = await asyncio.wait_for(reader.readline(), timeout=QMP_TIMEOUT_SECONDS)
         return json.loads(response)
+    except asyncio.TimeoutError:
+        return {"error": {"desc": f"QMP command timed out after {QMP_TIMEOUT_SECONDS}s"}}
     finally:
         writer.close()
         await writer.wait_closed()
@@ -120,10 +132,17 @@ async def capture_screenshot():
             socket_path = path
             break
     
-    # Prepare storage directory
-    cwd = Path.cwd()
-    screenshot_dir = cwd / "screenshots"
-    screenshot_dir.mkdir(exist_ok=True)
+    # TEAM_001 BREADCRUMB: CONFIRMED - mkdir needs error handling
+    # Prepare storage directory with error handling
+    try:
+        cwd = Path.cwd()
+        screenshot_dir = cwd / "screenshots"
+        screenshot_dir.mkdir(exist_ok=True)
+    except PermissionError:
+        return [TextContent(type="text", text="Error: Cannot create screenshots directory (permission denied).")]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error: Failed to create screenshots directory: {str(e)}")]
+    
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"qemu_screenshot_{timestamp}.png"
     filepath = screenshot_dir / filename
